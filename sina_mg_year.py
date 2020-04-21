@@ -4,7 +4,7 @@ __author__ = "Gallen_qiu"
 '''最近5年的财报'''
 import requests,json,time,pymongo
 from bs4 import BeautifulSoup
-from multiprocessing import Queue
+from my_queque import *
 from concurrent.futures import ThreadPoolExecutor
 from pymongo.collection import Collection
 class Xinalang():
@@ -68,12 +68,12 @@ class Xinalang():
             print(info["SECNAME"], info["year"])
 
     def scheduler(self):
-        year_list=[2014,2015,2016,2017,2018]
+        year_list=[2015,2016,2017,2018,2019]
 
-        with open("D:\python文件库\项目\Financal analysis\A股数据分析\stockCode.txt",encoding="utf8") as f:
+        with open("./stockCode.txt", encoding="utf8") as f:
             lines=f.readlines()
-
         for line in lines:
+            print(line)
             info=json.loads(line)
             for year in year_list:
                 info["year"]=year
@@ -85,38 +85,40 @@ class Xinalang():
         pool=ThreadPoolExecutor(max_workers=8)
         while self.queue.qsize()>0:
             pool.submit(self.req, self.queue.get())
+            break
         pool.shutdown()
 
         print("剩下："+str(len(self.info)))
         while len(self.info)>0:
 
             self.req(self.info.pop())
-
         self.write_json()
+
 
     def write_json(self):
         try:
-            # 建立连接
-            client = pymongo.MongoClient('localhost', 27017)
-            # 建立数据库
-            db = client["XinlangFinance"]
+            # # 建立连接
+            # client = pymongo.MongoClient('localhost', 27017)
+            # # 建立数据库
+            # db = client["XinlangFinance"]
+            #
+            # # 从原有的txt文件导入share_id：
+            #
+            # # 表的对象化
+            # mgtable = Collection(db, 'FinanceReport_data')
 
-            # 从原有的txt文件导入share_id：
+            # mgtable.insert_many(self.dict_list)
+            import pandas as pd
+            csv = pd.DataFrame(self.dict_list)
+            csv.to_csv('finance_statement.csv')
 
-            # 表的对象化
-            mgtable = Collection(db, 'FinanceReport_data')
-
-            mgtable.insert_many(self.dict_list)
 
         except:
             print("写入出错！！")
             pass
 
 
-
 if __name__ == '__main__':
-
-
     start_time=time.time()
 
     X = Xinalang()
