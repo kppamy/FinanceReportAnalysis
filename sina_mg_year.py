@@ -1,12 +1,13 @@
-# -*- coding : utf-8 -*- #
+# -*- coding: utf-8 -*-
 
 __author__ = "Gallen_qiu"
 '''最近5年的财报'''
-import requests,json,time,pymongo
+import requests,json,time
 from bs4 import BeautifulSoup
 from my_queque import *
 from concurrent.futures import ThreadPoolExecutor
-from pymongo.collection import Collection
+# from pymongo.collection import Collection
+import pandas as pd
 class Xinalang():
     def __init__(self):
         self.queue=Queue()
@@ -56,46 +57,55 @@ class Xinalang():
                 data_.update(data)
 
             # data_["data"]=data_year
-            print(info["SECNAME"],info["year"])
+            print(info["SECCODE"],info["year"])
             self.dict_list.append(data_)
         except TimeoutError:
-            print("超时")
+            print("timeout!!!!!!!")
             self.info.append(ninfo)
         except:
-            print("其他错误")
-            print("其他错误")
+            print("unknow error!!!!!!!!!")
             info = json.loads(ninfo)
-            print(info["SECNAME"], info["year"])
+            print(info["SECCODE"], info["year"])
 
     def scheduler(self):
-        year_list=[2015,2016,2017,2018,2019]
+        year_list=[2019]
+        # year_list=[2015,2016,2017,2018,2019]
 
         with open("./stockCode.txt", encoding="utf8") as f:
             lines=f.readlines()
+        print('read stocks from txt: '+str(len(lines)))
         for line in lines:
-            print(line)
+            # print(line)
             info=json.loads(line)
             for year in year_list:
                 info["year"]=year
                 info_str=json.dumps(info)
                 # print(json.loads(info_str))
-
                 self.queue.put(info_str)
-
-        pool=ThreadPoolExecutor(max_workers=8)
-        while self.queue.qsize()>0:
-            pool.submit(self.req, self.queue.get())
-            break
-        pool.shutdown()
-
-        print("剩下："+str(len(self.info)))
-        while len(self.info)>0:
-
+        total = self.queue.qsize()
+        print('put into the queue '+str(total))
+        counter = 0
+        batch = 100
+        while counter <= total:
+            pool = ThreadPoolExecutor(max_workers=8)
+            while self.queue.qsize() > 0:
+                counter = counter + 1
+                pool.submit(self.req, self.queue.get())
+                # print('submit:  ' + str(counter))
+                if counter % batch == 0:
+                    break
+            pool.shutdown()
+            if counter % batch == 0:
+                self.write_json(counter // batch)
+            elif counter == total:
+                self.write_json(total)
+                counter = counter + 1
+        print("Left："+str(len(self.info)))
+        while len(self.info) > 0:
             self.req(self.info.pop())
-        self.write_json()
 
 
-    def write_json(self):
+    def write_json(self, batch):
         try:
             # # 建立连接
             # client = pymongo.MongoClient('localhost', 27017)
@@ -108,13 +118,11 @@ class Xinalang():
             # mgtable = Collection(db, 'FinanceReport_data')
 
             # mgtable.insert_many(self.dict_list)
-            import pandas as pd
+            print('#######################save file '+str(batch)+' ####################################')
             csv = pd.DataFrame(self.dict_list)
-            csv.to_csv('finance_statement.csv')
-
-
+            csv.to_csv('finance_statement'+str(batch)+'.csv')
         except:
-            print("写入出错！！")
+            print("error wite file！！")
             pass
 
 
@@ -124,6 +132,6 @@ if __name__ == '__main__':
     X = Xinalang()
     X.scheduler()
 
-    print("总耗时：{}秒".format(time.time()-start_time))
+    print("Time cost：{}s".format(time.time()-start_time))
 
 
