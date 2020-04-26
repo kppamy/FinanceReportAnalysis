@@ -13,6 +13,7 @@ class Xinalang():
         self.queue=Queue()
         self.info=[]
         self.dict_list=[]
+        self.progress = 0
 
     def req(self,ninfo):
         try:
@@ -57,7 +58,7 @@ class Xinalang():
                 data_.update(data)
 
             # data_["data"]=data_year
-            print(info["SECCODE"],info["year"])
+            print(info["SECCODE"],info["year"], '############# %'+str(self.progress)+' #############')
             self.dict_list.append(data_)
         except TimeoutError:
             print("timeout!!!!!!!")
@@ -68,8 +69,8 @@ class Xinalang():
             print(info["SECCODE"], info["year"])
 
     def scheduler(self):
-        year_list=[2019]
-        # year_list=[2015,2016,2017,2018,2019]
+        # year_list=[2019]
+        year_list=[2014,2015,2016,2017,2018]
 
         with open("./stockCode.txt", encoding="utf8") as f:
             lines=f.readlines()
@@ -85,11 +86,17 @@ class Xinalang():
         total = self.queue.qsize()
         print('put into the queue '+str(total))
         counter = 0
-        batch = 100
+        batch = 150
+        begin = 79 * batch
         while counter <= total:
             pool = ThreadPoolExecutor(max_workers=8)
             while self.queue.qsize() > 0:
                 counter = counter + 1
+                if counter <= begin:
+                    self.queue.get()
+                    # p8int('left size: '+str(self.queue.qsize()))
+                    continue
+                self.progress = round(((counter/total)*100))
                 pool.submit(self.req, self.queue.get())
                 # print('submit:  ' + str(counter))
                 if counter % batch == 0:
@@ -121,6 +128,7 @@ class Xinalang():
             print('#######################save file '+str(batch)+' ####################################')
             csv = pd.DataFrame(self.dict_list)
             csv.to_csv('finance_statement'+str(batch)+'.csv')
+            self.dict_list = []
         except:
             print("error wite file！！")
             pass
